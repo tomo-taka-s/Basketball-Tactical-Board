@@ -1,0 +1,2129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TACTICAL BOARD">
+<meta name="theme-color" content="#080f1c">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>TACTICAL BOARD</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@400;700&family=Orbitron:wght@700;900&display=swap');
+
+  :root {
+    --accent: #60a5fa;        /* Deep Navy blue */
+    --accent2: #f87171;
+    --btn-bg: #0d1525;
+    --btn-border: #1a2a40;
+    --text: #e8f0ff;
+    --team-a: #60a5fa;
+    --team-b: #f87171;
+    --ball-color: #f97316;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #080f1c;
+    font-family: 'Noto Sans JP', sans-serif;
+    color: var(--text);
+    touch-action: none;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    height: -webkit-fill-available;
+  }
+
+  /* ===== COURT ===== */
+  #court-wrap {
+    flex: 1; position: relative; overflow: hidden;
+    background: #080f1c; min-height: 0;
+  }
+  #court-canvas {
+    position: absolute; top: 0; left: 0; touch-action: none;
+  }
+  /* Deep Navy radial gradient background */
+  #court-wrap::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 80%, #0d1f3c 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 20%, #102040 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+  #court-wrap::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent, transparent 28px,
+      rgba(96,165,250,0.025) 28px,
+      rgba(96,165,250,0.025) 29px
+    );
+    pointer-events: none; z-index: 0;
+  }
+  #court-canvas { z-index: 1; }
+
+  /* ===== BOTTOM PANEL ===== */
+  #panel {
+    flex-shrink: 0;
+    background: #080f1c;
+    border-top: 1px solid #1a2a40;
+    padding: 6px 6px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  /* Each row fills full width, no scroll */
+  .btn-row {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+    width: 100%;
+  }
+
+  /* All buttons stretch equally by default */
+  .tbtn {
+    flex: 1;
+    min-width: 0;
+    height: 40px;
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    font-size: 15px;
+    transition: all 0.15s;
+  }
+  .tbtn span.label {
+    font-size: 8px;
+    color: #3a6080;
+    font-family: 'Noto Sans JP', sans-serif;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .tbtn:active  { background: #162038; transform: scale(0.94); }
+  .tbtn.active  { background: #0d1e35; border-color: var(--accent); box-shadow: 0 0 6px rgba(96,165,250,0.4); }
+  .tbtn.active span.label { color: var(--accent); }
+  .tbtn.team-a  { border-color: var(--team-a); }
+  .tbtn.team-b  { border-color: var(--team-b); }
+  .tbtn.ball-btn{ border-color: var(--ball-color); }
+  .tbtn.danger  { border-color: var(--accent2); }
+  .tbtn.danger span.label { color: var(--accent2); }
+
+  .marker-preview {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+    font-family: 'Bebas Neue', sans-serif; color: #fff;
+  }
+
+  /* Thin horizontal divider between rows */
+  .row-divider {
+    width: 100%; height: 1px; background: #1a2a40;
+  }
+
+  /* ===== COLOR / WIDTH ROW (hidden until draw tool) ===== */
+  #arrow-options {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+  }
+  .arrow-label { font-size: 9px; color: #2e5070; white-space: nowrap; flex-shrink: 0; }
+  .color-dot {
+    flex: 1; min-width: 0;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .color-dot.selected { border-color: #fff; }
+  .width-btn {
+    flex-shrink: 0;
+    background: #0d1525; border-radius: 4px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #aaa; font-size: 9px; height: 24px; padding: 0 7px;
+    border: 2px solid transparent; transition: border-color 0.15s;
+    white-space: nowrap;
+  }
+  .width-btn.selected { border-color: var(--accent); color: var(--accent); }
+
+  /* ===== TOAST ===== */
+  #toast {
+    position: absolute; bottom: 16px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(4,12,28,0.95); color: #fff;
+    padding: 7px 16px; border-radius: 20px; font-size: 12px;
+    opacity: 0; transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none; z-index: 100; white-space: nowrap; border: 1px solid #1a2a40;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ===== TITLE OVERLAY ===== */
+  #title-overlay {
+    position: absolute;
+    top: 10px; left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    pointer-events: none;
+    z-index: 20;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(96,165,250,0.12);
+    border-radius: 10px;
+    padding: 6px 18px 5px;
+    white-space: nowrap;
+  }
+  /* Row 1: TACTICAL / slash / BOARD */
+  #title-row1 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #title-main, #title-sub {
+    font-family: 'Orbitron', 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    line-height: 1;
+    background: linear-gradient(135deg, #ffffff 0%, #aaaaaa 40%, #ffffff 62%, #888888 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.9));
+  }
+  #title-slash {
+    width: 2px;
+    height: 26px;
+    background: linear-gradient(to bottom, #93c5fd, #1d4ed8);
+    transform: skewX(-12deg);
+    box-shadow: 0 0 8px rgba(96,165,250,0.8), 0 0 18px rgba(96,165,250,0.35);
+    flex-shrink: 0;
+  }
+  /* Row 2: subtitle */
+  #title-caption {
+    font-family: 'Orbitron', 'Bebas Neue', sans-serif;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: #60a5fa;
+    opacity: 0.7;
+    line-height: 1;
+    text-indent: 4px;
+  }
+
+  /* ===== MODE BADGE ===== */
+  #mode-badge {
+    position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+    background: rgba(8,15,28,0.8); border: 1px solid #1a2a40;
+    border-radius: 12px; padding: 3px 10px; font-size: 10px; color: #3a5a80;
+    pointer-events: none; z-index: 10; white-space: nowrap;
+  }
+
+  /* ===== EDIT DIALOG ===== */
+  #edit-overlay {
+    display: none;
+    position: absolute; inset: 0;
+    background: rgba(0,8,20,0.72);
+    z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  #edit-overlay.show { display: flex; }
+  #edit-dialog {
+    background: #08101e;
+    border: 1px solid #1a2a40;
+    border-radius: 14px;
+    padding: 20px 20px 16px;
+    width: 240px;
+    display: flex; flex-direction: column; gap: 12px;
+    box-shadow: 0 8px 32px rgba(0,8,20,0.80);
+  }
+  #edit-dialog h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px; letter-spacing: 2px;
+    color: var(--accent); margin: 0; text-align: center;
+  }
+  #edit-input {
+    background: #040810; border: 1px solid #1a2a40; border-radius: 8px;
+    color: #fff; font-size: 18px; text-align: center;
+    padding: 8px; font-family: 'Bebas Neue', sans-serif; letter-spacing: 2px;
+    outline: none; width: 100%;
+  }
+  #edit-input:focus { border-color: var(--accent); }
+  .edit-btns { display: flex; gap: 8px; }
+  .edit-btn {
+    flex: 1; padding: 9px; border-radius: 8px; font-size: 13px;
+    cursor: pointer; border: 1px solid #1a2a40; background: #0d1525; color: #fff;
+    font-family: 'Noto Sans JP', sans-serif;
+    transition: background 0.15s;
+  }
+  .edit-btn:active { background: #162038; }
+  .edit-btn.confirm { background: #1a3a1a; border-color: #22c55e; color: #22c55e; }
+  .edit-btn.confirm:active { background: #1f4a1f; }
+
+  /* ===== SNAPSHOT STRIP ===== */
+  #snap-strip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    margin-top: 2px;
+  }
+  #snap-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px; letter-spacing: 1px;
+    color: #2a4a6a; flex-shrink: 0;
+    white-space: nowrap;
+  }
+  #snap-slots {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 3px;
+    flex: 1;
+  }
+  .snap-slot {
+    min-width: 0;
+    height: 26px;
+    border-radius: 5px;
+    border: 1px dashed #1a2a40;
+    background: #0a1525;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    transition: border-color 0.15s, background 0.15s;
+    overflow: hidden;
+  }
+  .snap-slot canvas {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 5px;
+    opacity: 0.85;
+  }
+  .snap-slot .snap-num {
+    position: absolute;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px; color: #1e3050;
+    pointer-events: none;
+  }
+  .snap-slot.filled { border-color: #1e3050; background: #080f1c; }
+  .snap-slot.active-slot { border-color: var(--accent) !important; box-shadow: 0 0 6px rgba(245,166,35,0.4); }
+  .snap-slot.active-slot .snap-num { color: var(--accent); }
+  .snap-slot:active { opacity: 0.7; }
+
+  /* Save + nav buttons next to strip */
+  #snap-save {
+    flex-shrink: 0;
+    height: 32px; padding: 0 8px;
+    background: #0a1a2a; border: 1px solid #3b82f6;
+    border-radius: 6px; color: #60a5fa;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px; letter-spacing: 1px;
+    cursor: pointer; white-space: nowrap;
+    transition: background 0.15s;
+  }
+  #snap-save:active { background: #1f3a1f; }
+
+  /* ===== SWIPE HINT (arrow overlay) ===== */
+  #swipe-hint {
+    position: absolute;
+    top: 56px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(6,12,24,0.88);
+    border: 1px solid #1a2a40; border-radius: 20px;
+    padding: 6px 16px;
+    pointer-events: none; z-index: 50;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  #swipe-hint.show { opacity: 1; }
+  #swipe-hint span { font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 2px; color: var(--accent); }
+
+
+  /* ===== DELETE CONFIRM DIALOG ===== */
+  #delete-overlay {
+    display: none;
+    position: absolute; inset: 0;
+    background: rgba(0,8,20,0.75);
+    z-index: 300;
+    align-items: center; justify-content: center;
+  }
+  #delete-overlay.show { display: flex; }
+  #delete-dialog {
+    background: #08101e;
+    border: 1px solid #1e3050;
+    border-radius: 14px;
+    padding: 20px 20px 16px;
+    width: 240px;
+    display: flex; flex-direction: column; gap: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+  }
+  #delete-dialog p {
+    font-size: 13px; color: #ccc; text-align: center; line-height: 1.6;
+  }
+  #delete-dialog strong {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px; letter-spacing: 1px; color: var(--accent);
+  }
+  .delete-btns { display: flex; gap: 8px; }
+  .del-btn {
+    flex: 1; padding: 10px; border-radius: 8px; font-size: 13px;
+    cursor: pointer; border: 1px solid #1a2a40; background: #0d1525; color: #fff;
+    font-family: 'Noto Sans JP', sans-serif; transition: background 0.15s;
+  }
+  .del-btn:active { background: #162038; }
+  .del-btn.del-confirm { background: #3a1a1a; border-color: var(--accent2); color: var(--accent2); }
+  .del-btn.del-confirm:active { background: #4a1a1a; }
+
+
+  /* ===== FORMATION SHEET ===== */
+  #formation-overlay {
+    display: none; position: absolute; inset: 0;
+    background: rgba(0,8,20,0.80); z-index: 400;
+    align-items: flex-end; justify-content: center;
+  }
+  #formation-overlay.show { display: flex; }
+  #formation-sheet {
+    background: #08101e; border: 1px solid #1a2a40;
+    border-radius: 18px 18px 0 0;
+    padding: 16px 12px 28px;
+    width: 100%; max-width: 420px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  #formation-sheet h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px; letter-spacing: 2px; color: var(--accent);
+    text-align: center; margin-bottom: 4px;
+  }
+  #formation-sheet h4 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px; letter-spacing: 1px; color: #2a4a6a;
+    margin: 4px 0 2px;
+  }
+  .formation-row { display: flex; gap: 6px; }
+  .fbtn {
+    flex: 1; padding: 9px 4px; border-radius: 8px;
+    background: #0d1a2a; border: 1px solid #1a2a40; color: #8ab4d4;
+    font-family: 'Bebas Neue', sans-serif; font-size: 12px;
+    letter-spacing: 1px; cursor: pointer; text-align: center;
+    transition: all 0.15s; line-height: 1.3;
+  }
+  .fbtn:active { background: #102038; border-color: var(--accent); color: var(--accent); }
+  .fbtn span { display: block; font-size: 9px; color: #2a4a6a;
+    font-family: 'Noto Sans JP', sans-serif; letter-spacing: 0; margin-top: 2px; }
+  .formation-cancel {
+    padding: 10px; border-radius: 8px;
+    background: #0d1a2a; border: 1px solid #1a2a40; color: #3a5a80;
+    font-family: 'Noto Sans JP', sans-serif; font-size: 13px;
+    cursor: pointer; text-align: center; margin-top: 4px;
+    transition: background 0.15s;
+  }
+  .formation-cancel:active { background: #162038; }
+
+  /* ===== AUTOPLAY OVERLAY ===== */
+  #autoplay-bar {
+    position: absolute; top: 56px; left: 50%;
+    transform: translateX(-50%);
+    display: none; align-items: center; gap: 14px;
+    background: rgba(6,12,24,0.92); border: 1px solid #1a2a40;
+    border-radius: 30px; padding: 8px 20px; z-index: 60;
+    white-space: nowrap;
+  }
+  #autoplay-bar.show { display: flex; }
+  #autoplay-play-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px; letter-spacing: 2px; color: var(--accent);
+    min-width: 60px; text-align: center;
+  }
+  #autoplay-stop {
+    font-size: 18px; cursor: pointer; color: #4a70a0;
+    transition: color 0.15s;
+  }
+  #autoplay-stop:active { color: #fff; }
+  #autoplay-progress {
+    position: absolute; bottom: 0; left: 0; height: 3px;
+    background: var(--accent); border-radius: 0 0 30px 30px;
+    transition: none;
+  }
+
+  /* ===== SNAP SLOT DRAG REORDER ===== */
+  .snap-slot.drag-over { border-color: var(--accent) !important; background: #0d1e35 !important; }
+  .snap-slot.dragging  { opacity: 0.4; }
+
+
+  #snap-play {
+    flex-shrink: 0; height: 32px; width: 32px;
+    background: #0a1525; border: 1px solid #60a5fa;
+    border-radius: 6px; color: #93c5fd;
+    font-size: 13px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  #snap-play:active { background: #1f2a3f; }
+  #snap-play.playing { background: #2a1a1a; border-color: var(--accent2); color: var(--accent2); }
+
+
+  /* ===== SESSION MANAGER ===== */
+  #session-overlay {
+    display: none; position: absolute; inset: 0;
+    background: rgba(0,8,20,0.80); z-index: 400;
+    align-items: flex-end; justify-content: center;
+  }
+  #session-overlay.show { display: flex; }
+  #session-sheet {
+    background: #06101e; border: 1px solid #1a2a40;
+    border-radius: 18px 18px 0 0;
+    padding: 16px 14px 28px;
+    width: 100%; max-width: 420px;
+    display: flex; flex-direction: column; gap: 10px;
+    max-height: 80vh; overflow: hidden;
+  }
+  #session-sheet h3 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px; letter-spacing: 3px; color: var(--accent);
+    text-align: center;
+  }
+  /* Tab bar */
+  #session-tabs {
+    display: flex; gap: 6px;
+  }
+  .stab {
+    flex: 1; padding: 7px; border-radius: 7px; text-align: center;
+    font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 1px;
+    cursor: pointer; border: 1px solid #1a2a40; color: #3a6080;
+    transition: all 0.15s; background: #0b1626;
+  }
+  .stab.active { background: #0d2040; border-color: var(--accent); color: var(--accent); }
+
+  /* Save tab */
+  #session-save-panel { display: flex; flex-direction: column; gap: 8px; }
+  #session-name-input {
+    background: #040c1e; border: 1px solid #1a2a40; border-radius: 8px;
+    color: #fff; font-size: 15px; padding: 10px 12px;
+    font-family: 'Noto Sans JP', sans-serif; outline: none; width: 100%;
+  }
+  #session-name-input:focus { border-color: var(--accent); }
+  #session-do-save {
+    padding: 11px; border-radius: 8px; text-align: center;
+    background: #0a2a1a; border: 1px solid #22c55e; color: #22c55e;
+    font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 2px;
+    cursor: pointer; transition: background 0.15s;
+  }
+  #session-do-save:active { background: #0f3a22; }
+
+  /* Load tab */
+  #session-load-panel {
+    display: none; flex-direction: column; gap: 6px;
+    overflow-y: auto; max-height: 52vh;
+  }
+  #session-load-panel::-webkit-scrollbar { width: 3px; }
+  #session-load-panel::-webkit-scrollbar-thumb { background: #1a2a40; border-radius: 2px; }
+  .session-item {
+    display: flex; align-items: center; gap: 8px;
+    background: #0b1626; border: 1px solid #1a2a40; border-radius: 8px;
+    padding: 9px 10px; cursor: pointer; transition: border-color 0.15s;
+  }
+  .session-item:active { border-color: var(--accent); }
+  .session-item-info { flex: 1; min-width: 0; }
+  .session-item-name {
+    font-family: 'Bebas Neue', sans-serif; font-size: 14px;
+    letter-spacing: 1px; color: #c8d8f0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .session-item-meta {
+    font-size: 9px; color: #2a4a6a; margin-top: 1px;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .session-item-del {
+    font-size: 16px; color: #3a5a70; cursor: pointer; flex-shrink: 0; padding: 4px;
+    transition: color 0.15s;
+  }
+  .session-item-del:active { color: var(--accent2); }
+  #session-empty {
+    text-align: center; color: #1e3050; font-size: 12px;
+    font-family: 'Noto Sans JP', sans-serif; padding: 20px;
+  }
+
+  /* Cancel */
+  #session-cancel {
+    padding: 10px; border-radius: 8px;
+    background: #0b1626; border: 1px solid #1a2a40; color: #3a6080;
+    font-family: 'Noto Sans JP', sans-serif; font-size: 13px;
+    cursor: pointer; text-align: center; transition: background 0.15s;
+  }
+  #session-cancel:active { background: #102038; }
+
+  /* Session button in row2 */
+  #session-btn { border-color: #22d3ee !important; }
+  #session-btn span.label { color: #22d3ee !important; }
+
+  /* Auto-save indicator */
+  #autosave-dot {
+    position: absolute; top: 8px; right: 8px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #22c55e; opacity: 0;
+    transition: opacity 0.3s; z-index: 30;
+    box-shadow: 0 0 6px #22c55e;
+  }
+  #autosave-dot.flash { opacity: 1; }
+
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- COURT -->
+  <div id="court-wrap">
+    <canvas id="court-canvas"></canvas>
+    <!-- Title overlay -->
+    <div id="title-overlay">
+      <div id="title-row1">
+        <span id="title-main">TACTICAL</span>
+        <div id="title-slash"></div>
+        <span id="title-sub">BOARD</span>
+      </div>
+      <div id="title-caption">BASKETBALL STRATEGY</div>
+    </div>
+    <div id="mode-badge">選手を移動</div>
+    <div id="autosave-dot"></div>
+    <div id="toast"></div>
+    <div id="delete-overlay">
+      <div id="delete-dialog">
+        <p><strong id="delete-title">PLAY 1</strong><br>を削除しますか？</p>
+        <div class="delete-btns">
+          <div class="del-btn" id="delete-cancel">キャンセル</div>
+          <div class="del-btn del-confirm" id="delete-confirm">削除</div>
+        </div>
+      </div>
+    </div>
+    <div id="swipe-hint"><span>◀</span><span id="swipe-hint-text">PLAY 1</span><span>▶</span></div>
+
+    <!-- Session Manager -->
+    <div id="session-overlay">
+      <div id="session-sheet">
+        <h3>SESSION MANAGER</h3>
+        <div id="session-tabs">
+          <div class="stab active" id="stab-save">💾 保存</div>
+          <div class="stab" id="stab-load">📂 読み込み</div>
+        </div>
+
+        <!-- Save panel -->
+        <div id="session-save-panel">
+          <input id="session-name-input" type="text" maxlength="24" placeholder="セッション名を入力（例: 速攻パターンA）">
+          <div id="session-do-save">SAVE SESSION</div>
+        </div>
+
+        <!-- Load panel -->
+        <div id="session-load-panel">
+          <div id="session-empty">保存済みセッションがありません</div>
+        </div>
+
+        <div id="session-cancel">キャンセル</div>
+      </div>
+    </div>
+
+    <!-- Formation picker -->
+    <div id="formation-overlay">
+      <div id="formation-sheet">
+        <h3>フォーメーション プリセット</h3>
+
+        <h4>── オフェンス ──</h4>
+        <div class="formation-row">
+          <div class="fbtn" data-formation="1-3-1">1-3-1<span>ハイロー</span></div>
+          <div class="fbtn" data-formation="1-4">1-4<span>フラット</span></div>
+          <div class="fbtn" data-formation="2-3">2-3<span>スタンダード</span></div>
+          <div class="fbtn" data-formation="3-2">3-2<span>スリーアウト</span></div>
+        </div>
+        <div class="formation-row">
+          <div class="fbtn" data-formation="4-out">4アウト<span>1イン</span></div>
+          <div class="fbtn" data-formation="5-out">5アウト<span>モーション</span></div>
+        </div>
+
+        <h4>── ディフェンス ──</h4>
+        <div class="formation-row">
+          <div class="fbtn" data-formation="man">マンツー<span>マン</span></div>
+          <div class="fbtn" data-formation="zone-2-3">ゾーン 2-3<span>エリア守備</span></div>
+          <div class="fbtn" data-formation="zone-3-2">ゾーン 3-2<span>エリア守備</span></div>
+          <div class="fbtn" data-formation="press">フル<span>プレス</span></div>
+        </div>
+
+        <div class="formation-cancel" id="formation-cancel">キャンセル</div>
+      </div>
+    </div>
+
+    <!-- Autoplay bar -->
+    <div id="autoplay-bar">
+      <div id="autoplay-play-num">PLAY 1</div>
+      <div id="autoplay-stop">■ 停止</div>
+      <div id="autoplay-progress"></div>
+    </div>
+
+    <!-- Edit dialog -->
+    <div id="edit-overlay">
+      <div id="edit-dialog">
+        <h3>番号 / 名前を編集</h3>
+        <input id="edit-input" type="text" maxlength="4" placeholder="例: 7">
+        <div class="edit-btns">
+          <div class="edit-btn" id="edit-cancel">キャンセル</div>
+          <div class="edit-btn confirm" id="edit-confirm">確定</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM PANEL: all controls in one view, no scrolling -->
+  <div id="panel">
+
+    <!-- Row 1: tool mode buttons -->
+    <div class="btn-row">
+      <div class="tbtn active" id="tool-move" data-tool="move">
+        ✋<span class="label">移動</span>
+      </div>
+      <div class="tbtn" id="tool-arrow" data-tool="arrow">
+        ➡️<span class="label">矢印</span>
+      </div>
+      <div class="tbtn" id="tool-dash" data-tool="dash">
+        ╌▶<span class="label">点線</span>
+      </div>
+      <div class="tbtn" id="tool-draw" data-tool="draw">
+        ✏️<span class="label">描画</span>
+      </div>
+      <div class="tbtn" id="tool-erase" data-tool="erase">
+        🧹<span class="label">消去</span>
+      </div>
+    </div>
+
+    <!-- Color/width: visible only when a draw tool is selected -->
+    <div id="arrow-options">
+      <span class="arrow-label">色</span>
+      <div class="color-dot selected" style="background:#ffffff" data-color="#ffffff"></div>
+      <div class="color-dot" style="background:#facc15" data-color="#facc15"></div>
+      <div class="color-dot" style="background:#3b82f6" data-color="#3b82f6"></div>
+      <div class="color-dot" style="background:#ef4444" data-color="#ef4444"></div>
+      <div class="color-dot" style="background:#22c55e" data-color="#22c55e"></div>
+      <div class="color-dot" style="background:#f97316" data-color="#f97316"></div>
+      <span class="arrow-label" style="margin-left:2px">太さ</span>
+      <div class="width-btn" data-width="2" id="w-thin">細</div>
+      <div class="width-btn selected" data-width="4" id="w-med">中</div>
+      <div class="width-btn" data-width="7" id="w-thick">太</div>
+    </div>
+
+    <div class="row-divider"></div>
+
+    <!-- Snapshot strip -->
+    <div id="snap-strip">
+      <span id="snap-label">PLAY</span>
+      <div id="snap-slots"></div>
+      <div id="snap-play" title="自動再生">▶</div>
+      <div id="snap-save">📸 保存</div>
+    </div>
+
+    <div class="row-divider"></div>
+
+    <!-- Row 2: markers + utility -->
+    <div class="btn-row">
+      <div class="tbtn team-a" id="add-a">
+        <div class="marker-preview" style="background:var(--team-a)">A</div>
+        <span class="label">攻撃追加</span>
+      </div>
+      <div class="tbtn team-b" id="add-b">
+        <div class="marker-preview" style="background:var(--team-b)">D</div>
+        <span class="label">守備追加</span>
+      </div>
+      <div class="tbtn ball-btn" id="add-ball">
+        🏀<span class="label">ボール</span>
+      </div>
+      <div class="tbtn" id="add-screen" style="border-color:#facc15">
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:#facc15;font-weight:900">⊢</span>
+        <span class="label" style="color:#facc15">スクリーン</span>
+      </div>
+      <div class="tbtn" id="toggle-court">
+        ⛳<span class="label">切替</span>
+      </div>
+      <div class="tbtn" id="formation-btn" style="border-color:#818cf8">
+        📋<span class="label" style="color:#818cf8">フォーメーション</span>
+      </div>
+      <div class="tbtn" id="resetBtn" style="border-color:#22c55e">
+        🔄<span class="label" style="color:#22c55e">リセット</span>
+      </div>
+      <div class="tbtn" id="session-btn">
+        💾<span class="label">セッション</span>
+      </div>
+      <div class="tbtn" id="undoBtn">
+        ↩<span class="label">戻す</span>
+      </div>
+      <div class="tbtn danger" id="clearBtn">
+        🗑<span class="label">全消去</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ================================================================
+// BASKETBALL TACTICS BOARD — VERTICAL / PORTRAIT COURT
+//
+// Logical coordinate system (metres):
+//   X : 0 → C_W   = 15  (court width, left→right)
+//   Y : 0 → C_H   = 14  (half court) or 28 (full court), top→bottom
+//
+// Basket at Y ≈ 1.575 (top end, half-court).
+// For full court: second basket at Y ≈ 26.425 (bottom).
+// ================================================================
+
+const canvas    = document.getElementById('court-canvas');
+const ctx       = canvas.getContext('2d');
+const wrap      = document.getElementById('court-wrap');
+const modeBadge = document.getElementById('mode-badge');
+
+const C_W      = 15;   // court width  (metres)
+const C_H_HALF = 14;   // half-court length
+const C_H_FULL = 28;   // full-court length
+
+let courtMode   = 'half';
+let currentTool = 'move';
+let arrowColor  = '#ffffff';
+let arrowWidth  = 4;
+let markers     = [];
+let drawings    = [];
+let history     = [];
+
+let isDrawing   = false;
+let drawStart   = null;
+let drawLive    = null;
+let currentPath = [];
+let dragMarker  = null;
+let dragOffset  = { x: 0, y: 0 };
+let dragBall    = null;
+let ballOffset  = { x: 0, y: 0 };
+let selectedMarker = null;  // highlighted on first touch, before drag
+let scale       = 1;
+let offsetX     = 0;
+let offsetY     = 0;
+let nextId      = 1;
+
+function courtH() { return courtMode === 'half' ? C_H_HALF : C_H_FULL; }
+function toCanvas(lx, ly)  { return { x: offsetX + lx * scale, y: offsetY + ly * scale }; }
+function toLogical(cx, cy) { return { x: (cx - offsetX) / scale, y: (cy - offsetY) / scale }; }
+
+// ---- Resize / scale ----
+function resize() {
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  canvas.width  = w;
+  canvas.height = h;
+  scale   = Math.min(w / C_W, h / courtH());
+  offsetX = (w - C_W      * scale) / 2;
+  offsetY = (h - courtH() * scale) / 2;
+  render();
+}
+
+// ================================================================
+// COURT DRAWING
+// ================================================================
+function drawCourt() {
+  const s  = scale;
+  const pW = C_W * s;
+  const pH = courtH() * s;
+
+  ctx.save();
+  ctx.translate(offsetX, offsetY);
+
+  // Wood background — darker, moodier tone
+  const grad = ctx.createLinearGradient(0, 0, pW, 0);
+  grad.addColorStop(0,   '#6b3c04');
+  grad.addColorStop(0.25,'#7a4506');
+  grad.addColorStop(0.5, '#864e08');
+  grad.addColorStop(0.75,'#7a4506');
+  grad.addColorStop(1,   '#6b3c04');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, pW, pH);
+
+  // Dark overlay to deepen the overall tone
+  ctx.fillStyle = 'rgba(0,0,0,0.32)';
+  ctx.fillRect(0, 0, pW, pH);
+
+  // Horizontal wood grain
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+  ctx.lineWidth = 1;
+  for (let y = 0; y < pH; y += 10) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(pW, y); ctx.stroke();
+  }
+
+  // Court outline
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 2.5;
+  ctx.strokeRect(2, 2, pW - 4, pH - 4);
+
+  // Full court extras
+  if (courtMode === 'full') {
+    ctx.beginPath();
+    ctx.moveTo(2, pH / 2); ctx.lineTo(pW - 2, pH / 2); ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(pW / 2, pH / 2, 1.8 * s, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(pW / 2, pH / 2, 0.3 * s, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fill();
+  }
+
+  // Basket ends
+  drawBasketEnd(pW, s, false); // top (Y=0 side)
+  if (courtMode === 'full') {
+    ctx.save();
+    ctx.translate(pW, pH); ctx.rotate(Math.PI);
+    drawBasketEnd(pW, s, false);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Draw basket end assuming endline is at Y=0, basket opens downward.
+ * pW = pixel court width, s = scale
+ */
+function drawBasketEnd(pW, s) {
+  const midX = pW / 2;
+
+  // ---- 3-second key ----
+  const keyW = 4.9 * s;
+  const keyH = 5.8 * s;
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(midX - keyW / 2, 0, keyW, keyH);
+
+  // ---- Free-throw circle (solid half inside key, dashed outside) ----
+  const ftY = keyH;
+  ctx.beginPath();
+  ctx.arc(midX, ftY, 1.8 * s, Math.PI, 0, false); // upper half (toward basket)
+  ctx.stroke();
+  ctx.setLineDash([8, 8]);
+  ctx.beginPath();
+  ctx.arc(midX, ftY, 1.8 * s, 0, Math.PI, false); // lower half
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ---- Backboard ----
+  const bbY = 0.4 * s;
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(midX - 0.9 * s, bbY);
+  ctx.lineTo(midX + 0.9 * s, bbY);
+  ctx.stroke();
+
+  // ---- Basket ring ----
+  const ringY = 1.575 * s;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#ff8c00';
+  ctx.beginPath();
+  ctx.arc(midX, ringY, 0.225 * s, 0, Math.PI * 2); ctx.stroke();
+
+  // ---- Restricted area arc ----
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(midX, ringY, 1.25 * s, 0, Math.PI, false); // semicircle below ring
+  ctx.stroke();
+
+  // ---- 3-point line ----
+  // Corner lines: 0.9 m from each sideline, from endline down to where arc begins
+  const threeR  = 6.75 * s;
+  const cxL     = 0.9 * s;
+  const cxR     = pW - 0.9 * s;
+  // Y where arc meets the corner line (Pythagoras from ring center)
+  const dy_corner = Math.sqrt(Math.max(0, threeR * threeR - (midX - cxL) ** 2));
+  const cornerY   = ringY + dy_corner;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 2;
+
+  // Left corner straight
+  ctx.beginPath(); ctx.moveTo(cxL, 0); ctx.lineTo(cxL, cornerY); ctx.stroke();
+  // Right corner straight
+  ctx.beginPath(); ctx.moveTo(cxR, 0); ctx.lineTo(cxR, cornerY); ctx.stroke();
+
+  // Arc from left corner to right corner, bulging away from endline (downward)
+  const angL = Math.atan2(cornerY - ringY, cxL - midX);
+  const angR = Math.atan2(cornerY - ringY, cxR - midX);
+  ctx.beginPath();
+  ctx.arc(midX, ringY, threeR, angL, angR, true);
+  ctx.stroke();
+}
+
+// ================================================================
+// MARKERS
+// ================================================================
+function drawMarker(m) {
+  const c = toCanvas(m.x, m.y);
+  const r = 15;          // marker radius
+  const R = 32;          // outer touch-ring radius (visual + hit area)
+
+  const isSelected = (m === dragMarker || m === selectedMarker);
+  const teamColor  = m.team === 'a' ? '#60a5fa' : '#f87171';
+
+  ctx.save();
+
+  // ── Outer touch ring (always visible, pulses on select) ──
+  if (m.type === 'player' || m.type === 'ball') {
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, R, 0, Math.PI * 2);
+    if (isSelected) {
+      // Bright solid ring when selected
+      ctx.strokeStyle = m.type === 'ball' ? '#fb923c' : teamColor;
+      ctx.lineWidth   = 2.5;
+      ctx.shadowColor = m.type === 'ball' ? '#fb923c' : teamColor;
+      ctx.shadowBlur  = 12;
+    } else {
+      // Subtle ring at rest
+      const ringAlpha = m.type === 'ball' ? 'rgba(249,115,22,0.25)' :
+                        m.team === 'a'    ? 'rgba(96,165,250,0.22)' :
+                                            'rgba(248,113,113,0.22)';
+      ctx.strokeStyle = ringAlpha;
+      ctx.lineWidth   = 1.5;
+      ctx.shadowBlur  = 0;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // ── Marker body ──
+  ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+
+  if (m.type === 'ball') {
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+    const g = ctx.createRadialGradient(c.x-4, c.y-4, 2, c.x, c.y, r);
+    g.addColorStop(0, '#ffb347'); g.addColorStop(1, '#e05a00');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1.5; ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.moveTo(c.x - r, c.y); ctx.lineTo(c.x + r, c.y); ctx.stroke();
+    ctx.beginPath(); ctx.arc(c.x, c.y, r*0.6, -0.45, Math.PI+0.45); ctx.stroke();
+    ctx.beginPath(); ctx.arc(c.x, c.y, r*0.6, Math.PI-0.45, Math.PI*2-0.45); ctx.stroke();
+
+  } else if (m.type === 'screen') {
+    // sw=bar width, sh=bar height, bw=base width, lw=line width
+    const sw = 5, sh = 36, bw = 26, lw = 3;
+    const color = '#facc15';  // vivid yellow — highly visible on dark court
+    const glow  = 'rgba(250,204,21,0.75)';
+
+    ctx.shadowColor = glow; ctx.shadowBlur = 12;
+    ctx.strokeStyle = color; ctx.lineWidth = lw;
+    ctx.lineCap = 'square';
+
+    // Vertical bar
+    ctx.beginPath();
+    ctx.moveTo(c.x, c.y - sh/2);
+    ctx.lineTo(c.x, c.y + sh/2);
+    ctx.stroke();
+
+    // Horizontal base
+    ctx.beginPath();
+    ctx.moveTo(c.x - bw/2, c.y + sh/2);
+    ctx.lineTo(c.x + bw/2, c.y + sh/2);
+    ctx.stroke();
+
+    // Selection ring
+    if (isSelected) {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+      ctx.shadowColor = '#facc15'; ctx.shadowBlur = 14;
+      ctx.strokeRect(c.x - bw/2 - 4, c.y - sh/2 - 4, bw + 8, sh + 10);
+    }
+
+  } else {
+    const color = m.team === 'a' ? '#3b82f6' : '#ef4444';
+    const ring  = m.team === 'a' ? '#93c5fd' : '#fca5a5';
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+    const g = ctx.createRadialGradient(c.x-3, c.y-3, 2, c.x, c.y, r);
+    g.addColorStop(0, ring); g.addColorStop(1, color);
+    ctx.fillStyle = g; ctx.fill();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#fff';
+    ctx.font = `bold 12px 'Bebas Neue', sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(m.num, c.x, c.y + 1);
+  }
+
+  ctx.restore();
+}
+
+// ================================================================
+// ARROWS / FREEHAND
+// ================================================================
+function drawArrow(x1, y1, x2, y2, color, width, dashed) {
+  const dx = x2 - x1, dy = y2 - y1;
+  if (Math.hypot(dx, dy) < 5) return;
+  const headLen = Math.max(10, width * 4);
+  const angle   = Math.atan2(dy, dx);
+  ctx.save();
+  ctx.strokeStyle = color; ctx.fillStyle = color;
+  ctx.lineWidth = width; ctx.lineCap = 'round';
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 3;
+  if (dashed) ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2 - Math.cos(angle)*headLen*0.6, y2 - Math.sin(angle)*headLen*0.6);
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - headLen*Math.cos(angle-0.4), y2 - headLen*Math.sin(angle-0.4));
+  ctx.lineTo(x2 - headLen*0.5*Math.cos(angle), y2 - headLen*0.5*Math.sin(angle));
+  ctx.lineTo(x2 - headLen*Math.cos(angle+0.4), y2 - headLen*Math.sin(angle+0.4));
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawFreehand(points, color, width) {
+  if (points.length < 2) return;
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = width;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 2;
+  ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    const mx = (points[i-1].x + points[i].x) / 2;
+    const my = (points[i-1].y + points[i].y) / 2;
+    ctx.quadraticCurveTo(points[i-1].x, points[i-1].y, mx, my);
+  }
+  ctx.stroke(); ctx.restore();
+}
+
+// ================================================================
+// RENDER
+// ================================================================
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawCourt();
+
+  for (const d of drawings) {
+    if (d.type === 'arrow' || d.type === 'dash')
+      drawArrow(d.p0.x, d.p0.y, d.p1.x, d.p1.y, d.color, d.width, d.type === 'dash');
+    else
+      drawFreehand(d.points, d.color, d.width);
+  }
+
+  if (isDrawing && drawStart && (currentTool === 'arrow' || currentTool === 'dash') && drawLive) {
+    const c0 = toCanvas(drawStart.x, drawStart.y);
+    drawArrow(c0.x, c0.y, drawLive.x, drawLive.y, arrowColor, arrowWidth, currentTool === 'dash');
+  }
+  if (isDrawing && currentTool === 'draw' && currentPath.length > 1)
+    drawFreehand(currentPath, arrowColor, arrowWidth);
+
+  for (const m of markers) drawMarker(m);
+}
+
+// ================================================================
+// INPUT
+// ================================================================
+function getPos(e) {
+  const rect  = canvas.getBoundingClientRect();
+  const touch = e.touches ? (e.touches[0] || e.changedTouches[0]) : e;
+  return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+}
+
+function hitMarker(cx, cy) {
+  for (let i = markers.length - 1; i >= 0; i--) {
+    const m = markers[i];
+    const c = toCanvas(m.x, m.y);
+    if (m.type === 'screen') {
+      if (cx >= c.x - 18 && cx <= c.x + 18 && cy >= c.y - 22 && cy <= c.y + 24) return m;
+    } else {
+      if (Math.hypot(cx - c.x, cy - c.y) < 40) return m; // matches outer ring R=32 + margin
+    }
+  }
+  return null;
+}
+
+function onDown(e) {
+  e.preventDefault();
+  const pos = getPos(e), lp = toLogical(pos.x, pos.y);
+  if (currentTool === 'move') {
+    const hit = hitMarker(pos.x, pos.y);
+    if (hit) {
+      pushHistory();
+      selectedMarker = hit;   // immediate highlight on touch
+      dragMarker  = hit;
+      dragOffset  = { x: lp.x - hit.x, y: lp.y - hit.y };
+      if (hit.type !== 'ball') {
+        const ball = markers.find(m => m.type === 'ball');
+        if (ball && Math.hypot(ball.x - hit.x, ball.y - hit.y) < 2.0) {
+          dragBall   = ball;
+          ballOffset = { x: ball.x - hit.x, y: ball.y - hit.y };
+        }
+      }
+      render();
+    } else {
+      selectedMarker = null;
+      render();
+    }
+  } else if (currentTool === 'erase') {
+    const hit = hitMarker(pos.x, pos.y);
+    if (hit) { pushHistory(); markers = markers.filter(m => m !== hit); render(); }
+    else eraseNearestDrawing(pos.x, pos.y);
+  } else if (currentTool === 'arrow' || currentTool === 'dash') {
+    isDrawing = true; drawStart = lp; drawLive = pos;
+  } else if (currentTool === 'draw') {
+    isDrawing = true; currentPath = [pos];
+  }
+}
+
+function onMove(e) {
+  e.preventDefault();
+  const pos = getPos(e), lp = toLogical(pos.x, pos.y);
+  if (dragMarker) {
+    dragMarker.x = lp.x - dragOffset.x;
+    dragMarker.y = lp.y - dragOffset.y;
+    if (dragBall) {
+      dragBall.x = dragMarker.x + ballOffset.x;
+      dragBall.y = dragMarker.y + ballOffset.y;
+    }
+    render();
+  } else if (isDrawing) {
+    if (currentTool === 'arrow' || currentTool === 'dash') { drawLive = pos; render(); }
+    else if (currentTool === 'draw') { currentPath.push(pos); render(); }
+  }
+}
+
+function onUp(e) {
+  e.preventDefault();
+  const pos = getPos(e);
+  if (dragMarker) { dragMarker = null; dragBall = null; selectedMarker = null; render(); return; }
+  if (!isDrawing) return;
+  if (currentTool === 'arrow' || currentTool === 'dash') {
+    const c0   = toCanvas(drawStart.x, drawStart.y);
+    const dist = Math.hypot(pos.x - c0.x, pos.y - c0.y);
+    if (dist > 15) {
+      pushHistory();
+      drawings.push({ type: currentTool, p0: c0, p1: pos, color: arrowColor, width: arrowWidth });
+    }
+  } else if (currentTool === 'draw' && currentPath.length > 3) {
+    pushHistory();
+    drawings.push({ type: 'draw', points: [...currentPath], color: arrowColor, width: arrowWidth });
+  }
+  isDrawing = false; drawStart = null; drawLive = null; currentPath = [];
+  render();
+}
+
+function eraseNearestDrawing(cx, cy) {
+  let minDist = 25, target = null;
+  for (const d of drawings) {
+    if (d.type === 'arrow' || d.type === 'dash') {
+      const dist = distToSeg({ x:cx, y:cy }, d.p0, d.p1);
+      if (dist < minDist) { minDist = dist; target = d; }
+    } else {
+      for (const pt of d.points) {
+        const dist = Math.hypot(cx - pt.x, cy - pt.y);
+        if (dist < minDist) { minDist = dist; target = d; }
+      }
+    }
+  }
+  if (target) { pushHistory(); drawings = drawings.filter(d => d !== target); render(); }
+}
+
+function distToSeg(p, a, b) {
+  const dx = b.x-a.x, dy = b.y-a.y;
+  const t  = Math.max(0, Math.min(1, ((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy+1e-9)));
+  return Math.hypot(p.x-(a.x+t*dx), p.y-(a.y+t*dy));
+}
+
+canvas.addEventListener('touchstart', onDown, { passive: false });
+canvas.addEventListener('touchmove',  onMove, { passive: false });
+canvas.addEventListener('touchend',   onUp,   { passive: false });
+canvas.addEventListener('mousedown',  onDown);
+canvas.addEventListener('mousemove',  onMove);
+canvas.addEventListener('mouseup',    onUp);
+
+// ================================================================
+// HISTORY
+// ================================================================
+function pushHistory() {
+  history.push({ markers: JSON.parse(JSON.stringify(markers)), drawings: JSON.parse(JSON.stringify(drawings)) });
+  if (history.length > 50) history.shift();
+  triggerAutoSave();
+}
+function undo() {
+  if (!history.length) { showToast('これ以上戻せません'); return; }
+  const s = history.pop(); markers = s.markers; drawings = s.drawings; render();
+  showToast('元に戻しました');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// ================================================================
+// TOOL SELECT
+// ================================================================
+function selectTool(tool) {
+  currentTool = tool;
+  document.querySelectorAll('.tbtn[data-tool]').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.tbtn[data-tool="${tool}"]`);
+  if (btn) btn.classList.add('active');
+  const drawTools = tool === 'arrow' || tool === 'dash' || tool === 'draw';
+  document.getElementById('arrow-options').style.display = drawTools ? 'flex' : 'none';
+  const labels = { move:'選手を移動', arrow:'矢印を描く', dash:'点線を描く', draw:'フリー描画', erase:'要素を消去' };
+  modeBadge.textContent = labels[tool] || '';
+}
+document.querySelectorAll('.tbtn[data-tool]').forEach(btn => {
+  btn.addEventListener('click', () => selectTool(btn.dataset.tool));
+});
+
+// ================================================================
+// ADD MARKERS
+// ================================================================
+function countByTeam(team) { return markers.filter(m => m.team === team).length; }
+
+document.getElementById('add-a').addEventListener('click', () => {
+  const n = countByTeam('a') + 1;
+  if (n > 7) { showToast('これ以上追加できません'); return; }
+  pushHistory();
+  const x = 1.5 + Math.random() * (C_W - 3);
+  const y = C_H_HALF * 0.5 + Math.random() * (C_H_HALF * 0.45);
+  markers.push({ id: nextId++, type: 'player', team: 'a', num: n, x, y });
+  render(); showToast(`攻撃 ${n} を追加`);
+});
+
+document.getElementById('add-b').addEventListener('click', () => {
+  const n = countByTeam('b') + 1;
+  if (n > 7) { showToast('これ以上追加できません'); return; }
+  pushHistory();
+  const x = 1.5 + Math.random() * (C_W - 3);
+  const y = C_H_HALF * 0.28 + Math.random() * (C_H_HALF * 0.3);
+  markers.push({ id: nextId++, type: 'player', team: 'b', num: n, x, y });
+  render(); showToast(`守備 ${n} を追加`);
+});
+
+document.getElementById('add-ball').addEventListener('click', () => {
+  if (markers.find(m => m.type === 'ball')) { showToast('ボールは1つだけです'); return; }
+  pushHistory();
+  markers.push({ id: nextId++, type: 'ball', x: C_W / 2, y: C_H_HALF * 0.6 });
+  render(); showToast('ボールを追加');
+});
+
+document.getElementById('undoBtn').addEventListener('click', undo);
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (!markers.length && !drawings.length) return;
+  pushHistory(); markers = []; drawings = []; render(); showToast('全て消去しました');
+});
+
+// ---- Add screen marker ----
+document.getElementById('add-screen').addEventListener('click', () => {
+  pushHistory();
+  const x = 4 + Math.random() * 7;
+  const y = C_H_HALF * 0.4 + Math.random() * (C_H_HALF * 0.35);
+  markers.push({ id: nextId++, type: 'screen', x, y });
+  render(); showToast('スクリーンを追加');
+});
+
+// ---- 5v5 Reset ----
+document.getElementById('resetBtn').addEventListener('click', () => {
+  pushHistory();
+  markers = []; drawings = [];
+  initDefault();
+  render(); showToast('5v5 リセットしました');
+});
+
+// ================================================================
+// DOUBLE-TAP EDIT (player number / name)
+// ================================================================
+let lastTap = { id: null, time: 0 };
+let editTarget = null;
+
+function openEditDialog(m) {
+  editTarget = m;
+  const input = document.getElementById('edit-input');
+  input.value = String(m.num ?? '');
+  document.getElementById('edit-overlay').classList.add('show');
+  setTimeout(() => input.focus(), 80);
+}
+function closeEditDialog() {
+  document.getElementById('edit-overlay').classList.remove('show');
+  editTarget = null;
+}
+
+document.getElementById('edit-confirm').addEventListener('click', () => {
+  if (!editTarget) { closeEditDialog(); return; }
+  const val = document.getElementById('edit-input').value.trim();
+  if (val !== '') {
+    pushHistory();
+    editTarget.num = val;
+    render();
+  }
+  closeEditDialog();
+});
+document.getElementById('edit-cancel').addEventListener('click', closeEditDialog);
+document.getElementById('edit-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('edit-overlay')) closeEditDialog();
+});
+document.getElementById('edit-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('edit-confirm').click();
+  if (e.key === 'Escape') closeEditDialog();
+});
+
+// Inject double-tap detection into onDown
+const _origOnDown = onDown;
+canvas.removeEventListener('touchstart', onDown);
+canvas.removeEventListener('mousedown',  onDown);
+
+function onDownWithEdit(e) {
+  // Double-tap detection (touch or mouse)
+  if (currentTool === 'move') {
+    const pos = (() => {
+      const rect  = canvas.getBoundingClientRect();
+      const touch = e.touches ? (e.touches[0] || e.changedTouches[0]) : e;
+      return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+    })();
+    const hit = hitMarker(pos.x, pos.y);
+    if (hit && hit.type === 'player') {
+      const now = Date.now();
+      if (lastTap.id === hit.id && now - lastTap.time < 400) {
+        // Double tap!
+        e.preventDefault();
+        lastTap = { id: null, time: 0 };
+        openEditDialog(hit);
+        return;
+      }
+      lastTap = { id: hit.id, time: now };
+    } else {
+      lastTap = { id: null, time: 0 };
+    }
+  }
+  onDown(e);
+}
+
+canvas.addEventListener('touchstart', onDownWithEdit, { passive: false });
+canvas.addEventListener('mousedown',  onDownWithEdit);
+
+// ================================================================
+// TOGGLE HALF / FULL COURT
+// ================================================================
+document.getElementById('toggle-court').addEventListener('click', () => {
+  const wasHalf = courtMode === 'half';
+  courtMode = wasHalf ? 'full' : 'half';
+  const ratio = wasHalf ? C_H_FULL / C_H_HALF : C_H_HALF / C_H_FULL;
+  markers.forEach(m => {
+    m.y = Math.max(0.5, Math.min(courtH() - 0.5, m.y * ratio));
+  });
+  drawings = [];
+  resize();
+  showToast(courtMode === 'half' ? 'ハーフコート' : 'フルコート');
+});
+
+// ================================================================
+// COLOR / WIDTH PICKERS
+// ================================================================
+document.querySelectorAll('.color-dot[data-color]').forEach(dot => {
+  dot.addEventListener('click', () => {
+    document.querySelectorAll('.color-dot[data-color]').forEach(d => d.classList.remove('selected'));
+    dot.classList.add('selected'); arrowColor = dot.dataset.color;
+  });
+});
+document.querySelectorAll('[data-width]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-width]').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected'); arrowWidth = parseInt(btn.dataset.width);
+  });
+});
+
+
+// ================================================================
+// FORMATION PRESETS
+// ================================================================
+const FORMATIONS = {
+  // ----------------------------------------------------------------
+  // Coordinate reference (half court, logical metres):
+  //   Court width  : X = 0 – 15,  centre X = 7.5
+  //   Court length : Y = 0 – 14,  basket at Y=0 (TOP)
+  //
+  //   Key landmarks:
+  //     Basket ring      Y = 1.575,  X = 7.5
+  //     Key sides        X = 5.05 / 9.95  (width 4.9 m)
+  //     Free-throw line  Y = 5.8
+  //     Elbow (FT corner)Y = 5.8,  X = 5.05 or 9.95
+  //     3-pt arc tip     Y ≈ 8.33, X = 7.5
+  //     3-pt wing        Y ≈ 6.5,  X ≈ 3.0 or 12.0
+  //     3-pt corner      Y ≈ 3.0,  X = 0.9 or 14.1
+  //     Half-court line  Y = 14
+  //
+  //   Placement goal: pack play near the basket (Y=0 side).
+  //   Low post  ≈ Y 2.5–3.5
+  //   Mid post  ≈ Y 4.0–5.0
+  //   Elbow     ≈ Y 5.8
+  //   Wing      ≈ Y 6.0–6.8, X 3.0–3.8 / 11.2–12.0
+  //   Top-key   ≈ Y 7.5–8.3, X 7.5
+  //   Corner    ≈ Y 3.0,     X 1.5 / 13.5
+  // ----------------------------------------------------------------
+
+  // a[] = offence (blue),  b[] = defence (red)
+  //
+  // Layout intent (half court Y=0 top / basket, Y=14 half-court line):
+  //   Corner 3pt    : X=0.9/14.1,  Y≈1.8–2.2   ← right by endline
+  //   Low post      : X=5.5/9.5,   Y≈2.5–3.2
+  //   Elbow / block : X=5.1/9.9,   Y≈5.8
+  //   Wing 3pt      : X=2.8/12.2,  Y≈6.2–6.8
+  //   Top of key    : X=7.5,       Y≈8.0–8.3
+  //   Guard spread  : X=4.0/11.0,  Y≈8.0–8.5
+
+  '1-3-1': {
+    // Low post | LW elbow | C high-post | RW elbow | PG top
+    a: [[7.5,8.2], [2.8,6.5], [7.5,4.8], [12.2,6.5], [7.5,2.8]],
+    b: [[7.5,7.5], [2.8,5.8], [7.5,4.0], [12.2,5.8], [7.5,2.2]],
+    label: '1-3-1 ハイロー'
+  },
+  '1-4': {
+    // PG top | 4 across FT-line width + corners
+    a: [[7.5,8.2], [0.9,5.8], [5.1,5.8], [9.9,5.8], [14.1,5.8]],
+    b: [[7.5,7.2], [1.5,5.0], [5.1,5.0], [9.9,5.0], [13.5,5.0]],
+    label: '1-4 フラット'
+  },
+  '2-3': {
+    // 2 guards wide top | 3 spread: corners + paint
+    a: [[3.5,8.5], [11.5,8.5], [0.9,2.0], [7.5,4.2], [14.1,2.0]],
+    b: [[3.5,7.5], [11.5,7.5], [1.5,2.8], [7.5,3.5], [13.5,2.8]],
+    label: '2-3 スタンダード'
+  },
+  '3-2': {
+    // 3 perimeter wide (corners + top) | 2 elbows
+    a: [[0.9,2.0], [7.5,8.3], [14.1,2.0], [5.1,5.8], [9.9,5.8]],
+    b: [[1.5,2.8], [7.5,7.5], [13.5,2.8], [5.1,5.0], [9.9,5.0]],
+    label: '3-2 スリーアウト'
+  },
+  '4-out': {
+    // 4 on 3pt perimeter spread wide | 1 low post paint
+    a: [[0.9,2.0], [3.5,7.5], [11.5,7.5], [14.1,2.0], [7.5,2.8]],
+    b: [[1.5,2.8], [3.5,6.5], [11.5,6.5], [13.5,2.8], [7.5,2.2]],
+    label: '4アウト1イン'
+  },
+  '5-out': {
+    // 5 spread: corners + wings + top
+    a: [[0.9,2.0], [2.8,7.0], [7.5,8.3], [12.2,7.0], [14.1,2.0]],
+    b: [[1.5,2.8], [2.8,6.2], [7.5,7.5], [12.2,6.2], [13.5,2.8]],
+    label: '5アウト モーション'
+  },
+  'man': {
+    // Offence wide. Defence: each marks tight, 1m closer to basket
+    a: [[7.5,8.2], [2.8,6.5], [12.2,6.5], [0.9,2.0], [14.1,2.0]],
+    b: [[7.5,7.2], [2.8,5.5], [12.2,5.5], [1.5,2.2], [13.5,2.2]],
+    label: 'マンツーマン'
+  },
+  'zone-2-3': {
+    // D: 2 high wings + 3 low across paint
+    a: [[7.5,8.2], [2.8,6.5], [12.2,6.5], [0.9,2.0], [14.1,2.0]],
+    b: [[3.5,7.0], [11.5,7.0], [1.2,3.8], [7.5,3.8], [13.8,3.8]],
+    label: 'ゾーン 2-3'
+  },
+  'zone-3-2': {
+    // D: 3 high spread + 2 low paint
+    a: [[7.5,8.2], [2.8,6.5], [12.2,6.5], [0.9,2.0], [14.1,2.0]],
+    b: [[1.8,7.5], [7.5,8.0], [13.2,7.5], [5.1,4.5], [9.9,4.5]],
+    label: 'ゾーン 3-2'
+  },
+  'press': {
+    // Full-court press: D traps near half-court
+    a: [[7.5,8.2], [2.8,6.5], [12.2,6.5], [0.9,2.0], [14.1,2.0]],
+    b: [[7.5,10.0], [2.5,11.5], [12.5,11.5], [4.5,8.0], [10.5,8.0]],
+    label: 'フルコート プレス'
+  },
+};
+
+function applyFormation(key) {
+  const f = FORMATIONS[key];
+  if (!f) return;
+  pushHistory();
+
+  // Keep existing numbers, replace only positions
+  const existA = markers.filter(m => m.type === 'player' && m.team === 'a');
+  const existB = markers.filter(m => m.type === 'player' && m.team === 'b');
+  const ball   = markers.find(m => m.type === 'ball');
+  const others = markers.filter(m => m.type === 'screen');
+
+  markers = [];
+
+  // For full court: formation coords are defined for half-court (Y 0–14).
+  // Scale Y into the TOP half of the full court (Y 0–14 out of 0–28).
+  const yScale = courtMode === 'full' ? C_H_FULL / C_H_HALF : 1;
+
+  f.a.forEach(([x, y], i) => {
+    const num = existA[i] ? existA[i].num : i + 1;
+    markers.push({ id: nextId++, type: 'player', team: 'a', num, x, y: y * yScale });
+  });
+  f.b.forEach(([x, y], i) => {
+    const num = existB[i] ? existB[i].num : i + 1;
+    markers.push({ id: nextId++, type: 'player', team: 'b', num, x, y: y * yScale });
+  });
+  if (ball) markers.push({ ...ball, x: f.a[0][0], y: f.a[0][1] * yScale + 0.5 });
+  markers.push(...others);
+
+  drawings = [];
+  render();
+  showToast(f.label);
+  closeFormationSheet();
+}
+
+function openFormationSheet() {
+  document.getElementById('formation-overlay').classList.add('show');
+}
+function closeFormationSheet() {
+  document.getElementById('formation-overlay').classList.remove('show');
+}
+
+document.getElementById('formation-btn').addEventListener('click', openFormationSheet);
+document.getElementById('formation-cancel').addEventListener('click', closeFormationSheet);
+document.getElementById('formation-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('formation-overlay')) closeFormationSheet();
+});
+document.querySelectorAll('.fbtn[data-formation]').forEach(btn => {
+  btn.addEventListener('click', () => applyFormation(btn.dataset.formation));
+});
+
+// ================================================================
+// AUTOPLAY
+// ================================================================
+let autoplayTimer   = null;
+let autoplayIdx     = 0;
+const AUTOPLAY_MS   = 2500; // ms per slide
+
+function startAutoplay() {
+  if (snapshots.length < 2) { showToast('2枚以上保存してください'); return; }
+  autoplayIdx = 0;
+  loadSnapshot(autoplayIdx);
+  document.getElementById('snap-play').classList.add('playing');
+  document.getElementById('snap-play').textContent = '■';
+  showAutoplayBar(autoplayIdx);
+  autoplayTimer = setInterval(() => {
+    autoplayIdx++;
+    if (autoplayIdx >= snapshots.length) {
+      stopAutoplay(); return;
+    }
+    loadSnapshot(autoplayIdx);
+    showAutoplayBar(autoplayIdx);
+  }, AUTOPLAY_MS);
+}
+
+function stopAutoplay() {
+  clearInterval(autoplayTimer);
+  autoplayTimer = null;
+  document.getElementById('snap-play').classList.remove('playing');
+  document.getElementById('snap-play').textContent = '▶';
+  hideAutoplayBar();
+}
+
+function showAutoplayBar(i) {
+  const bar = document.getElementById('autoplay-bar');
+  bar.classList.add('show');
+  document.getElementById('autoplay-play-num').textContent = `PLAY ${i + 1}`;
+  // Animate progress bar
+  const prog = document.getElementById('autoplay-progress');
+  prog.style.transition = 'none';
+  prog.style.width = '0%';
+  requestAnimationFrame(() => {
+    prog.style.transition = `width ${AUTOPLAY_MS}ms linear`;
+    prog.style.width = '100%';
+  });
+}
+function hideAutoplayBar() {
+  document.getElementById('autoplay-bar').classList.remove('show');
+}
+
+document.getElementById('snap-play').addEventListener('click', () => {
+  if (autoplayTimer) stopAutoplay(); else startAutoplay();
+});
+document.getElementById('autoplay-stop').addEventListener('click', stopAutoplay);
+
+// ================================================================
+// SNAPSHOT DRAG REORDER
+// ================================================================
+let dragSnapIdx  = -1;
+let overSnapIdx  = -1;
+
+function initSnapDragReorder() {
+  // Called inside renderSnapStrip — attaches drag events to filled slots
+  const slots = document.querySelectorAll('.snap-slot.filled');
+  slots.forEach((slot, i) => {
+    slot.setAttribute('draggable', 'true');
+
+    slot.addEventListener('dragstart', e => {
+      dragSnapIdx = i;
+      setTimeout(() => slot.classList.add('dragging'), 0);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    slot.addEventListener('dragend', () => {
+      slot.classList.remove('dragging');
+      document.querySelectorAll('.snap-slot').forEach(s => s.classList.remove('drag-over'));
+      dragSnapIdx = -1; overSnapIdx = -1;
+    });
+    slot.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (overSnapIdx !== i) {
+        document.querySelectorAll('.snap-slot').forEach(s => s.classList.remove('drag-over'));
+        slot.classList.add('drag-over');
+        overSnapIdx = i;
+      }
+    });
+    slot.addEventListener('drop', e => {
+      e.preventDefault();
+      if (dragSnapIdx < 0 || dragSnapIdx === i) return;
+      // Reorder
+      const moved = snapshots.splice(dragSnapIdx, 1)[0];
+      snapshots.splice(i, 0, moved);
+      if (activeSnap === dragSnapIdx) activeSnap = i;
+      else if (activeSnap > dragSnapIdx && activeSnap <= i) activeSnap--;
+      else if (activeSnap < dragSnapIdx && activeSnap >= i) activeSnap++;
+      renderSnapStrip();
+      showToast(`PLAY 並び替え完了`);
+    });
+
+    // Touch-based reorder (long-press + drag on mobile)
+    let touchDragTimer;
+    let touchDragging = false;
+    slot.addEventListener('touchstart', e => {
+      touchDragTimer = setTimeout(() => {
+        touchDragging = true;
+        dragSnapIdx   = i;
+        slot.classList.add('dragging');
+      }, 600);
+    }, { passive: true });
+    slot.addEventListener('touchmove', e => {
+      if (!touchDragging) { clearTimeout(touchDragTimer); return; }
+      e.preventDefault();
+      const touch  = e.touches[0];
+      const el     = document.elementFromPoint(touch.clientX, touch.clientY);
+      const target = el ? el.closest('.snap-slot') : null;
+      document.querySelectorAll('.snap-slot').forEach(s => s.classList.remove('drag-over'));
+      if (target) {
+        const allSlots = [...document.querySelectorAll('.snap-slot')];
+        overSnapIdx    = allSlots.indexOf(target);
+        target.classList.add('drag-over');
+      }
+    }, { passive: false });
+    slot.addEventListener('touchend', e => {
+      clearTimeout(touchDragTimer);
+      if (touchDragging && overSnapIdx >= 0 && overSnapIdx !== dragSnapIdx && overSnapIdx < snapshots.length) {
+        const moved = snapshots.splice(dragSnapIdx, 1)[0];
+        snapshots.splice(overSnapIdx, 0, moved);
+        if (activeSnap === dragSnapIdx) activeSnap = overSnapIdx;
+        renderSnapStrip();
+        showToast('PLAY 並び替え完了');
+      }
+      slot.classList.remove('dragging');
+      document.querySelectorAll('.snap-slot').forEach(s => s.classList.remove('drag-over'));
+      touchDragging = false; dragSnapIdx = -1; overSnapIdx = -1;
+    }, { passive: true });
+  });
+}
+
+
+
+// ================================================================
+// LOCALSTORAGE KEYS
+// ================================================================
+const LS_AUTO    = 'tacticalboard_auto';    // auto-save current state
+const LS_SESSIONS = 'tacticalboard_sessions'; // named sessions
+
+// ---- Serialize / deserialize (thumbnails are canvas → dataURL) ----
+function serializeState() {
+  return {
+    markers:   JSON.parse(JSON.stringify(markers)),
+    drawings:  JSON.parse(JSON.stringify(drawings)),
+    courtMode,
+    snapshots: snapshots.map(s => ({
+      markers:  s.markers,
+      drawings: s.drawings,
+      court:    s.court,
+      thumbURL: s.thumb ? s.thumb.toDataURL() : null
+    })),
+    activeSnap
+  };
+}
+
+function deserializeState(data) {
+  markers   = data.markers   || [];
+  drawings  = data.drawings  || [];
+  courtMode = data.courtMode || 'half';
+  activeSnap = data.activeSnap ?? -1;
+  snapshots = (data.snapshots || []).map(s => {
+    let thumb = null;
+    if (s.thumbURL) {
+      const img = new Image();
+      const oc  = document.createElement('canvas');
+      oc.width  = 120; oc.height = 60;
+      const ox  = oc.getContext('2d');
+      img.onload = () => ox.drawImage(img, 0, 0);
+      img.src = s.thumbURL;
+      thumb = oc;
+    }
+    return { markers: s.markers, drawings: s.drawings, court: s.court, thumb };
+  });
+}
+
+// ---- Auto-save (debounced, called after every state change) ----
+let autoSaveTimer;
+function triggerAutoSave() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(LS_AUTO, JSON.stringify(serializeState()));
+      // Flash green dot
+      const dot = document.getElementById('autosave-dot');
+      dot.classList.add('flash');
+      setTimeout(() => dot.classList.remove('flash'), 800);
+    } catch(e) { /* storage full */ }
+  }, 800);
+}
+
+// ---- Load auto-save on startup ----
+function loadAutoSave() {
+  try {
+    const raw = localStorage.getItem(LS_AUTO);
+    if (!raw) return false;
+    deserializeState(JSON.parse(raw));
+    return true;
+  } catch(e) { return false; }
+}
+
+// ---- Named sessions ----
+function getSessions() {
+  try { return JSON.parse(localStorage.getItem(LS_SESSIONS) || '[]'); }
+  catch(e) { return []; }
+}
+function putSessions(list) {
+  try { localStorage.setItem(LS_SESSIONS, JSON.stringify(list)); }
+  catch(e) { showToast('保存容量が不足しています'); }
+}
+
+function saveSession(name) {
+  if (!name.trim()) { showToast('名前を入力してください'); return; }
+  const list = getSessions();
+  const now  = new Date();
+  const dateStr = `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  // Overwrite if same name
+  const existing = list.findIndex(s => s.name === name.trim());
+  const entry = { name: name.trim(), date: dateStr, state: serializeState() };
+  if (existing >= 0) list[existing] = entry;
+  else list.unshift(entry);
+  putSessions(list);
+  showToast(`「${name.trim()}」を保存しました`);
+  closeSessionSheet();
+}
+
+function loadSession(idx) {
+  const list = getSessions();
+  if (!list[idx]) return;
+  pushHistory();
+  deserializeState(list[idx].state);
+  resize();
+  renderSnapStrip();
+  showToast(`「${list[idx].name}」を読み込みました`);
+  closeSessionSheet();
+}
+
+function deleteSession(idx) {
+  const list = getSessions();
+  const name = list[idx]?.name || '';
+  list.splice(idx, 1);
+  putSessions(list);
+  renderSessionList();
+  showToast(`「${name}」を削除しました`);
+}
+
+// ---- Session sheet UI ----
+function openSessionSheet(tab = 'save') {
+  document.getElementById('session-overlay').classList.add('show');
+  switchSessionTab(tab);
+  if (tab === 'save') {
+    const input = document.getElementById('session-name-input');
+    input.value = '';
+    setTimeout(() => input.focus(), 80);
+  }
+}
+function closeSessionSheet() {
+  document.getElementById('session-overlay').classList.remove('show');
+}
+function switchSessionTab(tab) {
+  document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`stab-${tab}`).classList.add('active');
+  document.getElementById('session-save-panel').style.display = tab === 'save' ? 'flex' : 'none';
+  document.getElementById('session-load-panel').style.display = tab === 'load' ? 'flex' : 'none';
+  if (tab === 'load') renderSessionList();
+}
+function renderSessionList() {
+  const panel = document.getElementById('session-load-panel');
+  const list  = getSessions();
+  panel.innerHTML = '';
+  if (!list.length) {
+    panel.innerHTML = '<div id="session-empty">保存済みセッションがありません</div>';
+    return;
+  }
+  list.forEach((s, i) => {
+    const item = document.createElement('div');
+    item.className = 'session-item';
+    item.innerHTML = `
+      <div class="session-item-info">
+        <div class="session-item-name">${s.name}</div>
+        <div class="session-item-meta">${s.date} ／ PLAY ${(s.state.snapshots||[]).length}枚 ／ 選手${(s.state.markers||[]).filter(m=>m.type==='player').length}人</div>
+      </div>
+      <div class="session-item-del" data-idx="${i}">🗑</div>
+    `;
+    item.querySelector('.session-item-info').addEventListener('click', () => loadSession(i));
+    item.querySelector('.session-item-del').addEventListener('click', e => {
+      e.stopPropagation();
+      deleteSession(i);
+    });
+    panel.appendChild(item);
+  });
+}
+
+document.getElementById('session-btn').addEventListener('click', () => openSessionSheet('save'));
+document.getElementById('stab-save').addEventListener('click', () => switchSessionTab('save'));
+document.getElementById('stab-load').addEventListener('click', () => switchSessionTab('load'));
+document.getElementById('session-do-save').addEventListener('click', () => {
+  saveSession(document.getElementById('session-name-input').value);
+});
+document.getElementById('session-name-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') saveSession(e.target.value);
+});
+document.getElementById('session-cancel').addEventListener('click', closeSessionSheet);
+document.getElementById('session-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('session-overlay')) closeSessionSheet();
+});
+
+// ---- Auto-save also hooks into snap operations via triggerAutoSave calls ----
+
+// ================================================================
+// DEFAULT 5 vs 5 (portrait half-court)
+// Basket at TOP (Y≈0). Offense in lower area, defense in upper area.
+// X: 0–15 (court width), Y: 0–14 (half-court length top→bottom)
+// ================================================================
+function initDefault() {
+  // Offense (blue) — spread around Y 8–12 (key/3pt area)
+  [
+    [7.5, 10.5],  // PG (top of key)
+    [3.5,  8.5],  // SG left wing
+    [11.5, 8.5],  // SF right wing
+    [1.5,  6.5],  // PF left corner
+    [13.5, 6.5],  // C  right corner
+  ].forEach(([x,y], i) => markers.push({ id: nextId++, type:'player', team:'a', num:i+1, x, y }));
+
+  // Defense (red) — spread around Y 4–7 (between key and midcourt)
+  [
+    [7.5,  8.0],
+    [3.5,  6.5],
+    [11.5, 6.5],
+    [2.0,  4.5],
+    [13.0, 4.5],
+  ].forEach(([x,y], i) => markers.push({ id: nextId++, type:'player', team:'b', num:i+1, x, y }));
+
+  // Ball with PG
+  markers.push({ id: nextId++, type:'ball', x:7.5, y:11.0 });
+}
+
+
+// ================================================================
+// SNAPSHOT SYSTEM
+// ================================================================
+const MAX_SNAPS   = 16;
+let snapshots     = [];   // [{ markers, drawings, thumb }]
+let activeSnap    = -1;   // which slot is currently "loaded" (-1 = unsaved)
+let swipeStartX   = 0;
+let swipeStartY   = 0;
+let swipingSnap   = false;
+
+function captureThumb() {
+  // Render current board to a tiny offscreen canvas for thumbnail
+  const tw = 120, th = 60;
+  const oc  = document.createElement('canvas');
+  oc.width  = tw; oc.height = th;
+  const ox  = oc.getContext('2d');
+  // Scale to fit
+  const scl = Math.min(tw / (C_W * scale), th / (courtH() * scale));
+  ox.drawImage(canvas, offsetX, offsetY, C_W * scale, courtH() * scale, 0, 0, tw, th);
+  return oc;
+}
+
+function saveSnapshot() {
+  if (snapshots.length >= MAX_SNAPS) {
+    showToast(`最大 ${MAX_SNAPS} 枚まで保存できます`); return;
+  }
+  const snap = {
+    markers:  JSON.parse(JSON.stringify(markers)),
+    drawings: JSON.parse(JSON.stringify(drawings)),
+    court:    courtMode,
+    thumb:    captureThumb()
+  };
+  snapshots.push(snap);
+  activeSnap = snapshots.length - 1;
+  renderSnapStrip();
+  showToast(`PLAY ${activeSnap + 1} を保存`);
+}
+
+function loadSnapshot(i) {
+  if (i < 0 || i >= snapshots.length) return;
+  pushHistory();
+  const s = snapshots[i];
+  markers   = JSON.parse(JSON.stringify(s.markers));
+  drawings  = JSON.parse(JSON.stringify(s.drawings));
+  if (s.court !== courtMode) {
+    courtMode = s.court;
+  }
+  activeSnap = i;
+  resize();
+  renderSnapStrip();
+  showSwipeHint(i);
+}
+
+function deleteSnapshot(i) {
+  if (i < 0 || i >= snapshots.length) return;
+  snapshots.splice(i, 1);
+  if (activeSnap >= snapshots.length) activeSnap = snapshots.length - 1;
+  renderSnapStrip();
+  showToast('削除しました');
+}
+
+
+let deleteTargetIdx = -1;
+function openDeleteDialog(i) {
+  deleteTargetIdx = i;
+  document.getElementById('delete-title').textContent = `PLAY ${i + 1}`;
+  document.getElementById('delete-overlay').classList.add('show');
+}
+function closeDeleteDialog() {
+  document.getElementById('delete-overlay').classList.remove('show');
+  deleteTargetIdx = -1;
+}
+
+function renderSnapStrip() {
+  const container = document.getElementById('snap-slots');
+  container.innerHTML = '';
+  for (let i = 0; i < MAX_SNAPS; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'snap-slot' + (i < snapshots.length ? ' filled' : '') + (i === activeSnap ? ' active-slot' : '');
+
+    if (i < snapshots.length) {
+      // Show thumbnail
+      const thumb = snapshots[i].thumb;
+      const img   = document.createElement('canvas');
+      img.width   = thumb.width; img.height = thumb.height;
+      img.getContext('2d').drawImage(thumb, 0, 0);
+      slot.appendChild(img);
+    } else {
+      const num = document.createElement('span');
+      num.className = 'snap-num';
+      num.textContent = i + 1;
+      slot.appendChild(num);
+    }
+
+    const idx = i;
+    // Tap: load; long-press: delete
+    let pressTimer;
+    slot.addEventListener('touchstart', e => {
+      pressTimer = setTimeout(() => {
+        if (idx < snapshots.length) openDeleteDialog(idx);
+      }, 600);
+    }, { passive: true });
+    slot.addEventListener('touchend', e => {
+      clearTimeout(pressTimer);
+    });
+    slot.addEventListener('click', () => {
+      if (idx < snapshots.length) loadSnapshot(idx);
+    });
+
+    container.appendChild(slot);
+  }
+  initSnapDragReorder();
+}
+
+// Swipe left/right on court to navigate snapshots
+let swipeTouchId = null;
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1 && currentTool === 'move') {
+    swipeStartX  = e.touches[0].clientX;
+    swipeStartY  = e.touches[0].clientY;
+    swipeTouchId = e.touches[0].identifier;
+    swipingSnap  = false;
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchmove', e => {
+  if (swipeTouchId === null) return;
+  const t = [...e.touches].find(t => t.identifier === swipeTouchId);
+  if (!t) return;
+  const dx = t.clientX - swipeStartX;
+  const dy = t.clientY - swipeStartY;
+  // Detect horizontal swipe (not vertical, not dragging a marker)
+  if (!dragMarker && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+    swipingSnap = true;
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchend', e => {
+  if (!swipingSnap || snapshots.length < 2) { swipingSnap = false; return; }
+  const t = [...e.changedTouches].find(t => t.identifier === swipeTouchId);
+  if (!t) { swipingSnap = false; return; }
+  const dx = t.clientX - swipeStartX;
+  if (dx < -40 && activeSnap < snapshots.length - 1) loadSnapshot(activeSnap + 1);
+  else if (dx > 40 && activeSnap > 0)                loadSnapshot(activeSnap - 1);
+  swipingSnap  = false;
+  swipeTouchId = null;
+}, { passive: true });
+
+let swipeHintTimer;
+function showSwipeHint(i) {
+  const hint = document.getElementById('swipe-hint');
+  document.getElementById('swipe-hint-text').textContent = `PLAY ${i + 1}`;
+  hint.classList.add('show');
+  clearTimeout(swipeHintTimer);
+  swipeHintTimer = setTimeout(() => hint.classList.remove('show'), 1200);
+}
+
+document.getElementById('snap-save').addEventListener('click', saveSnapshot);
+
+
+document.getElementById('delete-confirm').addEventListener('click', () => {
+  if (deleteTargetIdx >= 0) deleteSnapshot(deleteTargetIdx);
+  closeDeleteDialog();
+});
+document.getElementById('delete-cancel').addEventListener('click', closeDeleteDialog);
+document.getElementById('delete-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('delete-overlay')) closeDeleteDialog();
+});
+
+// Init strip
+renderSnapStrip();
+
+// Try restoring auto-saved state; fall back to default 5v5
+const restored = loadAutoSave();
+if (!restored) initDefault();
+resize();
+renderSnapStrip();
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 150));
+// Auto-save on marker drag end
+canvas.addEventListener('touchend', triggerAutoSave, { passive: true });
+canvas.addEventListener('mouseup', triggerAutoSave);
+</script>
+</body>
+</html>
