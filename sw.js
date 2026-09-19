@@ -1,4 +1,4 @@
-const CACHE = 'sakusenban-v1';
+const CACHE = 'sakusenban-v2';
 const ASSETS = [
   './',
   './index.html',
